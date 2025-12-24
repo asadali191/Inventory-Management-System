@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card-soft p-3">
+      <div class="kpi">
+        <div class="kpi-ico"><i class="bi bi-box"></i></div>
+        <div>
+          <div class="kpi-label">Products</div>
+          <div class="kpi-value">{{ products_count|default:"—" }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card-soft p-3">
+      <div class="kpi">
+        <div class="kpi-ico"><i class="bi bi-geo"></i></div>
+        <div>
+          <div class="kpi-label">Locations</div>
+          <div class="kpi-value">{{ locations_count|default:"—" }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card-soft p-3">
+      <div class="kpi">
+        <div class="kpi-ico"><i class="bi bi-people"></i></div>
+        <div>
+          <div class="kpi-label">Customers</div>
+          <div class="kpi-value">{{ customers_count|default:"—" }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-lg-6">
+    <div class="card-soft p-3">
+      <h6 class="fw-bold mb-2">Quick Actions</h6>
+      <div class="d-grid gap-2">
+        <a class="btn btn-primary" href="/invoice/new/"><i class="bi bi-receipt me-2"></i>Start Sell</a>
+        <a class="btn btn-outline-primary" href="/stock/in/"><i class="bi bi-box-seam me-2"></i>Stock In</a>
+        <a class="btn btn-outline-secondary" href="/admin-ui/"><i class="bi bi-grid-1x2 me-2"></i>Admin Panel</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card-soft p-3">
+      <h6 class="fw-bold mb-2">System Notes</h6>
+      <div class="text-muted">
+        POS flow: scan → cart → invoice. Return is separate doc (audit-safe).
+      </div>
+      <hr>
+      <div class="text-muted small">
+        Tip: Barcode scanner keyboard jaisa hota hai. Input pe cursor rakho, scan karo, Enter → add.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h4>Reports</h4>
+
+<div class="card p-3 mt-2">
+  <h6>Stock Balance</h6>
+  <table class="table table-sm">
+    <thead><tr><th>SKU</th><th>Product</th><th>Location</th><th>On Hand</th><th>Available</th></tr></thead>
+    <tbody>
+      {% for b in stock %}
+      <tr>
+        <td>{{ b.product.sku }}</td>
+        <td>{{ b.product.product_name }}</td>
+        <td>{{ b.location.name }}</td>
+        <td>{{ b.on_hand_qty }}</td>
+        <td>{{ b.available_qty }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card p-3 mt-3">
+  <h6>Recent Sales (Top 30)</h6>
+  <table class="table table-sm">
+    <thead><tr><th>Invoice</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for s in sales_lines %}
+      <tr><td>{{ s.invoice_no }}</td><td>{{ s.total }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card p-3 mt-3">
+  <h6>Profit (Approx)</h6>
+  <div class="fs-4">{{ profit }}</div>
+</div>
+{% endblock %}

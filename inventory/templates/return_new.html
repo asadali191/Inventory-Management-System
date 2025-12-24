@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+{% block title %}Return{% endblock %}
+{% block page_title %}Return{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card-soft p-3">
+      <h6 class="fw-bold mb-3">Return Setup</h6>
+
+      <div class="mb-2">
+        <label class="form-label">Location</label>
+        <select id="location_id" class="form-select" required>
+          <option value="">-- Select --</option>
+          {% for loc in locations %}
+            <option value="{{ loc.id }}">{{ loc.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="mb-2">
+        <label class="form-label">Scan Invoice No</label>
+        <input id="invoice_no" class="form-control" placeholder="INV-00012" autocomplete="off">
+        <div class="form-text">Enter press kar ke invoice load karo</div>
+      </div>
+
+      <hr class="my-3">
+
+      <div class="mb-2">
+        <label class="form-label">Scan Item (SKU/Barcode)</label>
+        <input id="scan_code" class="form-control" placeholder="Scan + Enter" autocomplete="off" disabled>
+        <div class="form-text">Allowed = sold − already returned</div>
+      </div>
+
+      <div id="alert" class="alert alert-danger py-2 d-none"></div>
+
+      <button id="btn_submit" class="btn btn-primary w-100 mt-2" disabled>
+        <i class="bi bi-check2-circle me-2"></i>Confirm Return
+      </button>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card-soft p-3 mb-3">
+      <div class="d-flex justify-content-between align-items-center">
+        <h6 class="m-0 fw-bold">Invoice Items</h6>
+        <div class="small text-muted">Invoice: <span id="inv_label">—</span></div>
+      </div>
+
+      <div class="table-responsive mt-2">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Item</th>
+              <th class="text-end">Sold</th>
+              <th class="text-end">Returned</th>
+              <th class="text-end">Allowed</th>
+            </tr>
+          </thead>
+          <tbody id="inv_body">
+            <tr><td colspan="5" class="text-muted">Load an invoice…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card-soft p-3">
+      <div class="d-flex justify-content-between align-items-center">
+        <h6 class="m-0 fw-bold">Return Cart</h6>
+        <div class="small text-muted">Items: <span id="ret_count">0</span></div>
+      </div>
+
+      <div class="table-responsive mt-2">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Item</th>
+              <th class="text-end">Price</th>
+              <th class="text-center">Qty</th>
+              <th class="text-end">Line</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="ret_body">
+            <tr><td colspan="6" class="text-muted">Scan items to return…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="d-flex justify-content-end mt-2">
+        <div class="fs-5">
+          Refund: <strong id="ret_total">0.00</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const invoiceInput = document.getElementById("invoice_no");
+  const scanInput = document.getElementById("scan_code");
+  const invBody = document.getElementById("inv_body");
+  const retBody = document.getElementById("ret_body");
+  const invLabel = document.getElementById("inv_label");
+  const alertBox = document.getElementById("alert");
+  const btnSubmit = document.getElementById("btn_submit");
+  const retTotalEl = document.getElementById("ret_total");
+  const retCountEl = document.getElementById("ret_count");
+
+  let invoice = null;            // {id, invoice_no, lines:[...]}
+  let allowedMap = new Map();    // sku -> remaining_allowed
+  let priceMap = new Map();      // sku -> unit_price
+  const cart = new Map();        // sku -> {sku,name,price,qty}
+
+  function csrftoken(){
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : "";
+  }
+  function showError(msg){
+    alertBox.textContent = msg;
+    alertBox.classList.remove("d-none");
+    setTimeout(()=>alertBox.classList.add("d-none"), 4000);
+  }
+  function money(n){
+    const x = Number(n || 0);
+    return x.toFixed(2);
+  }
+
+  function renderInvoice(){
+    invBody.innerHTML = "";
+    if(!invoice){
+      invBody.innerHTML = `<tr><td colspan="5" class="text-muted">Load an invoice…</td></tr>`;
+      invLabel.textContent = "—";
+      return;
+    }
+    invLabel.textContent = invoice.invoice_no;
+
+    for(const ln of invoice.lines){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="fw-semibold">${ln.sku}</td>
+        <td>${ln.name}</td>
+        <td class="text-end">${ln.sold_qty}</td>
+        <td class="text-end">${ln.already_returned}</td>
+        <td class="text-end"><strong>${ln.remaining_allowed}</strong></td>
+      `;
+      invBody.appendChild(tr);
+    }
+  }
+
+  function renderCart(){
+    retBody.innerHTML = "";
+    let total = 0;
+    let count = 0;
+
+    if(cart.size === 0){
+      retBody.innerHTML = `<tr><td colspan="6" class="text-muted">Scan items to return…</td></tr>`;
+      retTotalEl.textContent = "0.00";
+      retCountEl.textContent = "0";
+      return;
+    }
+
+    for(const [sku, it] of cart.entries()){
+      const line = Number(it.price) * Number(it.qty);
+      total += line;
+      count += Number(it.qty);
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="fw-semibold">${it.sku}</td>
+        <td>${it.name}</td>
+        <td class="text-end">${money(it.price)}</td>
+        <td class="text-center">
+          <div class="btn-group btn-group-sm" role="group">
+            <button class="btn btn-outline-secondary" data-act="dec" data-sku="${it.sku}">-</button>
+            <button class="btn btn-outline-dark" disabled>${it.qty}</button>
+            <button class="btn btn-outline-secondary" data-act="inc" data-sku="${it.sku}">+</button>
+          </div>
+        </td>
+        <td class="text-end">${money(line)}</td>
+        <td class="text-end">
+          <button class="btn btn-sm btn-outline-danger" data-act="del" data-sku="${it.sku}">x</button>
+        </td>
+      `;
+      retBody.appendChild(tr);
+    }
+
+    retTotalEl.textContent = money(total);
+    retCountEl.textContent = String(count);
+  }
+
+  retBody.addEventListener("click", (e)=>{
+    const btn = e.target.closest("button");
+    if(!btn) return;
+    const act = btn.getAttribute("data-act");
+    const sku = btn.getAttribute("data-sku");
+    if(!act || !sku) return;
+
+    const it = cart.get(sku);
+    if(!it) return;
+
+    const allowed = allowedMap.get(sku) ?? 0;
+
+    if(act === "inc"){
+      if(it.qty + 1 > allowed) return showError(`Allowed return for ${sku} is only ${allowed}`);
+      it.qty += 1;
+    }
+    if(act === "dec") it.qty = Math.max(1, it.qty - 1);
+    if(act === "del") cart.delete(sku);
+
+    renderCart();
+  });
+
+  async function loadInvoice(invoiceNo){
+    const r = await fetch(`/api/invoices/detail/?invoice_no=${encodeURIComponent(invoiceNo)}`);
+    const data = await r.json();
+    if(!r.ok){
+      invoice = null;
+      allowedMap = new Map();
+      priceMap = new Map();
+      cart.clear();
+      renderInvoice();
+      renderCart();
+      scanInput.disabled = true;
+      btnSubmit.disabled = true;
+      showError(data.detail || "Invoice not found");
+      return;
+    }
+
+    invoice = data;
+    allowedMap = new Map();
+    priceMap = new Map();
+
+    for(const ln of invoice.lines){
+      allowedMap.set(ln.sku, Number(ln.remaining_allowed));
+      priceMap.set(ln.sku, Number(ln.unit_price));
+    }
+
+    cart.clear();
+    renderInvoice();
+    renderCart();
+
+    scanInput.disabled = false;
+    btnSubmit.disabled = false;
+    scanInput.focus();
+  }
+
+  async function scanItem(code){
+    const r = await fetch(`/api/scan/?code=${encodeURIComponent(code)}`);
+    const data = await r.json();
+    if(!r.ok) return showError(data.detail || "Scan failed");
+
+    const sku = data.sku;
+    const name = data.name || "";
+    const allowed = allowedMap.get(sku);
+
+    if(allowed === undefined) return showError("This item is not part of the invoice.");
+    if(allowed <= 0) return showError(`Nothing left to return for ${sku}.`);
+
+    const current = cart.get(sku)?.qty || 0;
+    if(current + 1 > allowed) return showError(`Allowed return for ${sku} is only ${allowed}`);
+
+    const unitPrice = priceMap.get(sku) ?? Number(data.price || 0);
+
+    if(cart.has(sku)) cart.get(sku).qty += 1;
+    else cart.set(sku, {sku, name, price: unitPrice, qty: 1});
+
+    renderCart();
+  }
+
+  invoiceInput.addEventListener("keydown", async (e)=>{
+    if(e.key !== "Enter") return;
+    e.preventDefault();
+    const invNo = invoiceInput.value.trim();
+    if(!invNo) return;
+    await loadInvoice(invNo);
+  });
+
+  scanInput.addEventListener("keydown", async (e)=>{
+    if(e.key !== "Enter") return;
+    e.preventDefault();
+    const code = scanInput.value.trim();
+    if(!code) return;
+    scanInput.value = "";
+    await scanItem(code);
+  });
+
+  btnSubmit.addEventListener("click", async ()=>{
+    const locationId = document.getElementById("location_id").value;
+    if(!locationId) return showError("Select location first.");
+    if(!invoice) return showError("Load invoice first.");
+    if(cart.size === 0) return showError("Return cart is empty.");
+
+    const items = Array.from(cart.values()).map(it => ({
+      sku: it.sku, qty: it.qty, price: it.price
+    }));
+
+    btnSubmit.disabled = true;
+    try{
+      const r = await fetch("/api/returns/create/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrftoken(),
+        },
+        body: JSON.stringify({
+          location_id: Number(locationId),
+          invoice_id: Number(invoice.id),
+          items,
+        })
+      });
+      const data = await r.json();
+      if(!r.ok){
+        if(data.items && data.items.length) return showError(data.items[0].error || data.detail || "Return failed");
+        return showError(data.detail || "Return failed");
+      }
+
+      cart.clear();
+      renderCart();
+      alert(`Return posted ✅ ${data.return_no || ("ID: " + data.return_id)}`);
+    } finally {
+      btnSubmit.disabled = false;
+      scanInput.focus();
+    }
+  });
+
+  invoiceInput.focus();
+  renderInvoice();
+  renderCart();
+})();
+</script>
+{% endblock %}

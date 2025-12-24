@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center">
+  <h4>Return {{ ret.return_no }}</h4>
+  <a class="btn btn-outline-primary" href="?pdf=1">Download PDF</a>
+</div>
+
+<div class="card p-3 mt-2">
+  {% if ret.invoice %}<div><b>Against Invoice:</b> {{ ret.invoice.invoice_no }}</div>{% endif %}
+  <div><b>Total Refund:</b> {{ ret.total_refund }}</div>
+</div>
+
+<div class="card p-3 mt-2">
+  <table class="table table-sm">
+    <thead><tr><th>SKU</th><th>Product</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for line in ret.lines.all %}
+      <tr>
+        <td>{{ line.product.sku }}</td>
+        <td>{{ line.product.product_name }}</td>
+        <td>{{ line.qty }}</td>
+        <td>{{ line.unit_price }}</td>
+        <td>{{ line.line_total }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Print Barcode</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+
+    .label {
+      width: 300px;
+      border: 1px solid #ddd;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .sku {
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .barcode-img {
+      margin-top: 10px;
+    }
+
+    .barcode-img img {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .barcode-text {
+      font-size: 14px;
+      margin-top: 6px;
+      letter-spacing: 2px;
+    }
+
+    .no-print {
+      margin-bottom: 12px;
+    }
+
+    @media print {
+      .no-print {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="no-print">
+    <button onclick="window.print()">Print</button>
+  </div>
+
+  <div class="label">
+    <div class="sku">SKU: {{ p.sku }}</div>
+
+    {% if p.barcode_image %}
+      <div class="barcode-img">
+        <img src="{{ p.barcode_image.url }}" alt="Barcode">
+      </div>
+
+      <div class="barcode-text">
+        {{ p.barcode_value }}
+      </div>
+    {% else %}
+      <div style="color:red;">Barcode not generated</div>
+    {% endif %}
+  </div>
+
+</body>
+</html>

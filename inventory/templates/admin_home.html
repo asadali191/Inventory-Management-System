@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel{% endblock %}
+{% block page_title %}Custom Admin Panel{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card-soft p-3">
+      <h6 class="fw-bold">Manage</h6>
+      <div class="d-grid gap-2 mt-2">
+        <a class="btn btn-outline-primary" href="/admin-ui/locations/"><i class="bi bi-geo me-2"></i>Locations</a>
+        <a class="btn btn-outline-primary" href="/admin-ui/customers/"><i class="bi bi-people me-2"></i>Customers</a>
+        <a class="btn btn-outline-secondary" href="/products/"><i class="bi bi-tags me-2"></i>Products</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card-soft p-3">
+      <h6 class="fw-bold">Quick Actions</h6>
+      <div class="d-grid gap-2 mt-2">
+        <a class="btn btn-primary" href="/invoice/new/"><i class="bi bi-receipt me-2"></i>Start Sell</a>
+        <a class="btn btn-success" href="/stock/in/"><i class="bi bi-box-seam me-2"></i>Stock In</a>
+        <!-- <a class="btn btn-outline-dark" href="/admin/"><i class="bi bi-shield-lock me-2"></i>Django Admin</a> -->
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

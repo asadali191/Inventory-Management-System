@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}New Invoice{% endblock %}
+{% block page_title %}Start Sell{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card-soft p-3">
+      <h6 class="fw-bold mb-3">Checkout</h6>
+
+      <div class="mb-2">
+        <label class="form-label">Location</label>
+        <select id="location_id" class="form-select" required>
+          <option value="">-- Select --</option>
+          {% for loc in locations %}
+            <option value="{{ loc.id }}">{{ loc.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="mb-2">
+        <label class="form-label">Customer (optional)</label>
+        <select id="customer_id" class="form-select">
+          <option value="">Walk-in</option>
+          {% for c in customers %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <hr class="my-3">
+
+      <div class="mb-2">
+        <label class="form-label">Scan SKU / Barcode</label>
+        <input id="scan_code" class="form-control" placeholder="Scan + press Enter" autocomplete="off">
+        <div class="form-text">Same item scan again = qty +1</div>
+      </div>
+
+      <div id="alert" class="alert alert-danger py-2 d-none"></div>
+
+      <button id="btn_submit" class="btn btn-primary w-100 mt-2">
+        <i class="bi bi-check2-circle me-2"></i>Generate Invoice
+      </button>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card-soft p-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <h6 class="m-0 fw-bold">Cart</h6>
+        <div class="text-muted small">Items: <span id="item_count">0</span></div>
+      </div>
+
+      <div class="table-responsive mt-2">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Item</th>
+              <th class="text-end">Price</th>
+              <th class="text-center">Qty</th>
+              <th class="text-end">Line</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="cart_body">
+            <tr><td colspan="6" class="text-muted">Scan items to start…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="d-flex justify-content-end mt-2">
+        <div class="fs-5">
+          Total: <strong id="total_amount">0.00</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const scanInput = document.getElementById("scan_code");
+  const cartBody = document.getElementById("cart_body");
+  const totalEl = document.getElementById("total_amount");
+  const itemCountEl = document.getElementById("item_count");
+  const alertBox = document.getElementById("alert");
+  const btnSubmit = document.getElementById("btn_submit");
+
+  const cart = new Map(); // sku -> {sku,name,price,qty}
+
+  function showError(msg){
+    alertBox.textContent = msg;
+    alertBox.classList.remove("d-none");
+    setTimeout(()=>alertBox.classList.add("d-none"), 3500);
+  }
+  function csrftoken(){
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : "";
+  }
+  function money(n){
+    const x = Number(n || 0);
+    return x.toFixed(2);
+  }
+
+  function render(){
+    cartBody.innerHTML = "";
+    let total = 0;
+    let count = 0;
+
+    if(cart.size === 0){
+      cartBody.innerHTML = `<tr><td colspan="6" class="text-muted">Scan items to start…</td></tr>`;
+      totalEl.textContent = "0.00";
+      itemCountEl.textContent = "0";
+      return;
+    }
+
+    for(const [sku, it] of cart.entries()){
+      const line = Number(it.price) * Number(it.qty);
+      total += line;
+      count += Number(it.qty);
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="fw-semibold">${it.sku}</td>
+        <td>${it.name}</td>
+        <td class="text-end">${money(it.price)}</td>
+        <td class="text-center">
+          <div class="btn-group btn-group-sm" role="group">
+            <button class="btn btn-outline-secondary" data-act="dec" data-sku="${it.sku}">-</button>
+            <button class="btn btn-outline-dark" disabled>${it.qty}</button>
+            <button class="btn btn-outline-secondary" data-act="inc" data-sku="${it.sku}">+</button>
+          </div>
+        </td>
+        <td class="text-end">${money(line)}</td>
+        <td class="text-end">
+          <button class="btn btn-sm btn-outline-danger" data-act="del" data-sku="${it.sku}">x</button>
+        </td>
+      `;
+      cartBody.appendChild(tr);
+    }
+
+    totalEl.textContent = money(total);
+    itemCountEl.textContent = String(count);
+  }
+
+  cartBody.addEventListener("click", (e)=>{
+    const btn = e.target.closest("button");
+    if(!btn) return;
+    const act = btn.getAttribute("data-act");
+    const sku = btn.getAttribute("data-sku");
+    if(!act || !sku) return;
+
+    const it = cart.get(sku);
+    if(!it) return;
+
+    if(act === "inc") it.qty += 1;
+    if(act === "dec") it.qty = Math.max(1, it.qty - 1);
+    if(act === "del") cart.delete(sku);
+
+    render();
+  });
+
+  async function scan(code){
+    const r = await fetch(`/api/scan/?code=${encodeURIComponent(code)}`);
+    const data = await r.json();
+    if(!r.ok){
+      showError(data.detail || "Scan failed");
+      return;
+    }
+
+    const sku = data.sku;
+    const name = data.name || "";
+    const price = data.price || "0";
+
+    if(cart.has(sku)){
+      cart.get(sku).qty += 1;
+    }else{
+      cart.set(sku, {sku, name, price, qty: 1});
+    }
+    render();
+  }
+
+  scanInput.addEventListener("keydown", async (e)=>{
+    if(e.key !== "Enter") return;
+    e.preventDefault();
+    const code = scanInput.value.trim();
+    if(!code) return;
+    scanInput.value = "";
+    await scan(code);
+  });
+
+  btnSubmit.addEventListener("click", async ()=>{
+    const locationId = document.getElementById("location_id").value;
+    const customerId = document.getElementById("customer_id").value;
+
+    if(!locationId) return showError("Select location first.");
+    if(cart.size === 0) return showError("Cart is empty.");
+
+    const items = Array.from(cart.values()).map(it => ({
+      sku: it.sku, qty: it.qty, price: it.price
+    }));
+
+    btnSubmit.disabled = true;
+    try{
+      const r = await fetch("/api/invoices/create/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrftoken(),
+        },
+        body: JSON.stringify({
+          location_id: Number(locationId),
+          customer_id: customerId ? Number(customerId) : null,
+          items,
+        })
+      });
+      const data = await r.json();
+      if(!r.ok){
+        showError(data.detail || "Invoice create failed");
+        return;
+      }
+      cart.clear();
+      render();
+      alert(`Invoice generated ✅ ${data.invoice_no || ("ID: " + data.invoice_id)}`);
+    } finally {
+      btnSubmit.disabled = false;
+      scanInput.focus();
+    }
+  });
+
+  scanInput.focus();
+  render();
+})();
+</script>
+{% endblock %}

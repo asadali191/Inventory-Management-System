@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Locations{% endblock %}
+{% block page_title %}Locations{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="m-0 fw-bold">Locations</h5>
+  <a class="btn btn-primary" href="/admin-ui/locations/new/"><i class="bi bi-plus-circle me-2"></i>Add Location</a>
+</div>
+
+<div class="card-soft p-3">
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Name</th></tr></thead>
+      <tbody>
+        {% for l in locations %}
+          <tr><td class="fw-semibold">{{ l.name }}</td></tr>
+        {% empty %}
+          <tr><td class="text-muted">No locations yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

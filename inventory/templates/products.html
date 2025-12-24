@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Products{% endblock %}
+{% block page_title %}Products{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div>
+    <h5 class="m-0 fw-bold">Products</h5>
+    <div class="text-muted small">Manage items, barcodes, pricing and activation</div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <!-- <a href="/admin/" class="btn btn-outline-dark">
+      <i class="bi bi-shield-lock me-2"></i>Django Admin
+    </a> -->
+    <a href="{% url 'product_create' %}" class="btn btn-primary">
+      <i class="bi bi-plus-circle me-2"></i>Add Product
+    </a>
+  </div>
+</div>
+
+<div class="card-soft p-3">
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead>
+        <tr>
+          <th style="width:84px;">Image</th>
+          <th>SKU</th>
+          <th>Name</th>
+          <th>Color</th>
+          <th>Size</th>
+          <th class="text-end">Cost</th>
+          <th class="text-end">Selling</th>
+          <th>Barcode</th>
+          <th class="text-center">Status</th>
+          <th style="width:280px;">Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for p in products %}
+          <tr>
+            <td>
+              {% if p.product_image %}
+                <img src="{{ p.product_image.url }}" class="rounded" style="width:56px;height:56px;object-fit:cover;">
+              {% elif p.image %}
+                <img src="{{ p.image.url }}" class="rounded" style="width:56px;height:56px;object-fit:cover;">
+              {% else %}
+                <div class="rounded bg-light border d-flex align-items-center justify-content-center"
+                     style="width:56px;height:56px;">
+                  <i class="bi bi-image text-muted"></i>
+                </div>
+              {% endif %}
+            </td>
+
+            <td class="fw-semibold">{{ p.sku }}</td>
+
+            <td>
+              {% if p.product_name %}
+                {{ p.product_name }}
+              {% else %}
+                {{ p.name }}
+              {% endif %}
+            </td>
+
+            <td>{{ p.color|default:"-" }}</td>
+            <td>{{ p.size|default:"-" }}</td>
+
+            <td class="text-end">
+              {% if p.cost %}
+                {{ p.cost }}
+              {% elif p.cost_price %}
+                {{ p.cost_price }}
+              {% else %}
+                -
+              {% endif %}
+            </td>
+
+            <td class="text-end">
+              {% if p.selling_price %}
+                {{ p.selling_price }}
+              {% elif p.price %}
+                {{ p.price }}
+              {% else %}
+                -
+              {% endif %}
+            </td>
+
+            <td class="text-muted small">
+              {% if p.barcode_value %}
+                {{ p.barcode_value }}
+              {% elif p.barcode %}
+                {{ p.barcode }}
+              {% else %}
+                {% if p.is_active %}
+                  <span class="badge text-bg-info">Generating…</span>
+                {% else %}
+                  <span class="badge text-bg-secondary">Activate to generate</span>
+                {% endif %}
+              {% endif %}
+            </td>
+
+            <td class="text-center">
+              {% if p.is_active %}
+                <span class="badge text-bg-success">Active</span>
+              {% else %}
+                <span class="badge text-bg-secondary">Inactive</span>
+              {% endif %}
+            </td>
+
+            <td>
+              <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-outline-primary btn-sm" href="{% url 'product_edit' p.id %}">
+                  <i class="bi bi-pencil-square me-1"></i>Edit
+                </a>
+
+                <a class="btn btn-outline-dark btn-sm" href="{% url 'product_barcode_print' p.id %}" target="_blank">
+                  <i class="bi bi-printer me-1"></i>Print
+                </a>
+
+                {% if not p.is_active %}
+                  <form method="post" action="{% url 'product_activate' p.id %}">
+                    {% csrf_token %}
+                    <button class="btn btn-success btn-sm" type="submit">
+                      <i class="bi bi-check2-circle me-1"></i>Activate
+                    </button>
+                  </form>
+                {% else %}
+                  <span class="text-muted small align-self-center">OK</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="10" class="text-center text-muted py-4">No products yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="alert alert-info mt-3 mb-0">
+  <i class="bi bi-lightbulb me-2"></i>
+  Tip: Product <b>Activate</b> karte hi barcode auto-generate hota hai (signals/service).
+</div>
+{% endblock %}
